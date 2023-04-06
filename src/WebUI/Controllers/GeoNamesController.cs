@@ -24,7 +24,6 @@ public class GeoNamesController : ControllerBase
         try
         {
             _logger.LogInformation($"Searching for cities near ({dto.Latitude}, {dto.Longitude}).");
-            //var items = await _mediator.Send(new GetItemsQuery(dto));
             var items = await _repository.GetRangeAsync(dto);
 
             if (items.Any()) return Ok(items);
