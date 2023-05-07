@@ -42,7 +42,7 @@ internal class Planner : IHostedService
                 await _repository.AddRangeAsync(items, token);
             }
 
-            CatchTime(token).Start();
+			Task.Run(() => CatchTime(token), token);
         }
         catch (Exception ex)
         {

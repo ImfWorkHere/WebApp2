@@ -1,22 +1,76 @@
-# WebApp2
+## About 
+A RESTful API for searching geo names (cities, rivers and so on). Built using ASP.Net, Entity Framework, SQL Server, Seq, Docker, docker-compose. Taking data from [here](http://geonames.org).
 
-## Beginning
-This is my first completed solution. It was created to copy data from geonames.org to SQL Server and to have access to this data. Here I split my app in 4 folders (4 projects):
+## Documentation
+API supports following methods:
 
-- Domain - Just models and no logic
-- Application - Abstractions
-- Infrastructure - Realizations and some background logic
-- Web UI - Controller that provides access to db
+### GET `(host)/api/geonames(?Query params)`
+| Query params | Data type |
+| - | - |
+| Name | string |
+| Latitude | double |
+| Longitude | double|
+| Radius | double |
+| MinimumPopulation | uint |
+| MaximumPopulation | uint |
+| Count | int |
 
-The thing I like here is that I can really hide realizations, and have no chance to use them instead of  abstractions and I can publish Domain project to NuGet to use this models later in another solution.
+Return 
+```
+[
+	{
+        "id": int,
+        "name": "",
+        "asciiName": "",
+        "alternativeNames": "",
+        "latitude": double,
+        "longitude": double,
+        "featureClass": "",
+        "featureCode": "",
+        "countryCode": "",
+        "countryCode2": "",
+        "adminCode1": "",
+        "adminCode2": "",
+        "adminCode3": "",
+        "adminCode4": "",
+        "population": int,
+        "elevation": int?,
+        "dem": int,
+        "timeZone": "",
+        "modificationDate": ""
+    },
+    {...}
+]
+```
+*Can also return status code 404 Not Found!*
 
-## Db
-At the beginning I tried to use code-first db, but then realized that I can just copy T-SQL and don't waste some folders and memory on EF Tools (EF design NuGet package) and migrations. Also thought about where to store connection strings. User secrets is a good place for debugging, but on release with docker I tried to use environment variables and still use them (Azure key storage or Google/Amazon alternatives also looks pretty good). 
+#### Example
+Request:
+`(host)/api/geonames/get?Name=Minsk&Latitude=54&Longitude=28&Radius=100`
 
-## Memory
-Once I found, that I use quite a lot of CPU memory, and this value was only increasing. Then I found a problem with my repository, that just copies all db and then select things. It was also connected with my will of getting cities in radius of some km, and EF have no adapter to this kind of method (or I just haven't found it yet). So I changed this thing and also added call of GC at 4-5 am. 
-
-## Asynchronous methods
-In this solution I had a background service, that copy data to my SQL db. But at one moment I found that my controller didn't work. Then I realized that my web UI don't even hosted. The problem was in this background service. It has to work asynchronously, but I was awaiting him. That's kinda funny because he also was waiting till next day to update db.
-
-
+Response:
+```
+[
+    {
+        "id": 625144,
+        "name": "Minsk",
+        "asciiName": "Minsk",
+        "alternativeNames": "MSQ,Mins'k,Minsc,Minscum,Minsk,Minsk - Minsk,Minsk,Minsk osh,Minska,Minskaj,Minskas,Minsko,Minszk,Minsk,Myensk,Myenyesk,Mînsk,ming si ke,ming si ke shi,minseukeu,minsk,minsuku,mnsk,mynsk,mynsq,mynysky",
+        "latitude": 53.9,
+        "longitude": 27.56667,
+        "featureClass": "P",
+        "featureCode": "PPLC",
+        "countryCode": "BY",
+        "countryCode2": "",
+        "adminCode1": "04",
+        "adminCode2": "",
+        "adminCode3": "",
+        "adminCode4": "",
+        "population": 1742124,
+        "elevation": null,
+        "dem": 222,
+        "timeZone": "Europe/Minsk",
+        "modificationDate": "2022-05-05T00:00:00"
+    }
+]
+```
