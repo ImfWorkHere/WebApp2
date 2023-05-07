@@ -3,49 +3,42 @@ using System.IO.Compression;
 using CsvHelper;
 using CsvHelper.Configuration;
 using Domain;
-using Microsoft.Extensions.Logging;
+using Serilog;
 
 namespace Infrastructure;
 
 internal class DataSource
 {
-    private readonly IReaderConfiguration _config;
-    private readonly string _date;
-    private readonly ILogger<DataSource> _logger;
-    private readonly string _urlBase;
+    private static DateTime _today = DateTime.Today; 
+	private static string _stringDate = string.Empty;
+	private const string UrlBase = "http://download.geonames.org/export/dump/";
+	private static readonly IReaderConfiguration Config = new CsvConfiguration(CultureInfo.InvariantCulture)
+	{
+		HasHeaderRecord = false,
+		Delimiter = "\t",
+		BadDataFound = null,
+		MissingFieldFound = null
+	};
 
-    public DataSource(ILogger<DataSource> logger)
-    {
-        _logger = logger;
-        var date = DateTime.UtcNow;
-        _date =
-            $"{date.Year}-" +
-            $"{(date.Month >= 10 ? date.Month.ToString() : "0" + date.Month)}" +
-            $"-{(date.Day >= 10 ? (date.Day - 1).ToString() : "0" + (date.Day - 1))}";
 
-        _config = new CsvConfiguration(CultureInfo.InvariantCulture)
-        {
-            HasHeaderRecord = false,
-            Delimiter = "\t",
-            BadDataFound = null,
-            MissingFieldFound = null
-        };
-
-        _urlBase = "http://download.geonames.org/export/dump/";
-    }
+    private readonly ILogger _log = Log.ForContext<DataSource>();
 
     public async Task<IEnumerable<GeoName>> GetFullDbAsync(CancellationToken token = default)
     {
         try
         {
-            _logger.LogInformation("GetFullDBAsync(...) was called.");
-            var url = _urlBase + "cities500.zip";
+	        if (_today != DateTime.Today) 
+		        await ChangeDay();
+
+            _log.Information("Getting db from geonames.org.");
+            const string url = UrlBase + "cities500.zip";
             await using var zip = await DownloadFileAsync(url, token);
 
             var files = Unzip(zip);
             await using var file = files["cities500.txt"];
 
-            using var csv = new CsvReader(new StreamReader(file), _config);
+            using var csv = new CsvReader(new StreamReader(file), Config);
+
             if (token.IsCancellationRequested)
                 throw new TaskCanceledException("A task was cancelled.");
 
@@ -65,11 +58,14 @@ internal class DataSource
     {
         try
         {
-            _logger.LogInformation("GetModificationsAsync(...) was called.");
-            var url = string.Format(_urlBase + "modifications-" + _date + ".txt");
+	        if (_today != DateTime.Today)
+		        await ChangeDay();
+
+			_log.Information("Getting modifications from geonames.org.");
+            var url = string.Format(UrlBase + "modifications-" + _stringDate + ".txt");
             await using var file = await DownloadFileAsync(url, token);
 
-            using var csv = new CsvReader(new StreamReader(file), _config);
+            using var csv = new CsvReader(new StreamReader(file), Config);
             if (token.IsCancellationRequested)
                 throw new TaskCanceledException("A task was cancelled.");
 
@@ -89,11 +85,14 @@ internal class DataSource
     {
         try
         {
-            _logger.LogInformation("GetDeletesAsync(...) was called.");
-            var url = string.Format(_urlBase + "deletes-" + _date + ".txt");
+	        if (_today != DateTime.Today)
+		        await ChangeDay();
+
+			_log.Information("Getting deletes from geonames.org.");
+            var url = string.Format(UrlBase + "deletes-" + _stringDate + ".txt");
             await using var file = await DownloadFileAsync(url, token);
 
-            using var csv = new CsvReader(new StreamReader(file), _config);
+            using var csv = new CsvReader(new StreamReader(file), Config);
             if (token.IsCancellationRequested)
                 throw new TaskCanceledException("A task was cancelled.");
 
@@ -113,8 +112,7 @@ internal class DataSource
     {
         try
         {
-            _logger.LogInformation("DownloadFileAsync(...) was called.");
-            Stream stream = new MemoryStream();
+	        Stream stream = new MemoryStream();
             using var client = new HttpClient();
             using var response =
                 await client.GetAsync(url, token);
@@ -160,5 +158,16 @@ internal class DataSource
         {
             throw new Exception("Failed to get files from zip.", ex);
         }
+    }
+
+    private static Task ChangeDay()
+    {
+	    //Example for 06.05.2023 is 2023-05-05
+	    _today = DateTime.Today;
+	    _stringDate = $"{_today.Year}-" +
+	            $"{(_today.Month >= 10 ? _today.Month.ToString() : "0" + _today.Month)}" +
+	            $"-{(_today.Day >= 10 ? (_today.Day - 1).ToString() : "0" + (_today.Day - 1))}";
+
+	    return Task.CompletedTask;
     }
 }

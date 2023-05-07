@@ -16,7 +16,7 @@ public static class Extensions
         // Current db
         services.AddDbContextFactory<GeoNamesDbContext>(opt =>
         {
-            opt.UseSqlServer(config.GetConnectionString("GeoNames"));
+            opt.UseSqlServer(config.GetSection("GeoNames_SQL_Connection").Value);
         });
 
         // Abstract db, call her in DI

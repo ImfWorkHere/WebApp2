@@ -1,25 +1,32 @@
 using Infrastructure;
+using Serilog;
 
-ILogger? logger = null;
+Log.Logger = new LoggerConfiguration()
+	.MinimumLevel.Information()
+	.WriteTo.Console()
+	.WriteTo.Seq("http://seq:5341")
+	.CreateLogger();
+
 try
 {
-    var builder = WebApplication.CreateBuilder(args);
+	Log.Information("Starting web application");
+
+	var builder = WebApplication.CreateBuilder(args);
+
     var config = builder.Configuration;
     config.AddEnvironmentVariables();
 
-    builder.Logging.AddConsole();
+    builder.Host.UseSerilog();
 
-    // Add services to the container.
+	// Add services to the container.
 
-    builder.Services.AddControllers();
+	builder.Services.AddSwaggerGen();
+	builder.Services.AddControllers();
     builder.Services.AddEndpointsApiExplorer();
+
     builder.Services.AddInfrastructure(config);
 
-    // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-    builder.Services.AddSwaggerGen();
-
-    var app = builder.Build();
-    logger = app.Logger;
+	var app = builder.Build();
 
     // Configure the HTTP request pipeline.
     if (app.Environment.IsDevelopment())
@@ -27,6 +34,8 @@ try
         app.UseSwagger();
         app.UseSwaggerUI();
     }
+
+    app.UseSerilogRequestLogging();
 
     app.UseHttpsRedirection();
 
@@ -38,5 +47,9 @@ try
 }
 catch (Exception ex)
 {
-    logger?.LogCritical(ex, "Found critical unhandled error.");
+	Log.Fatal(ex, "Application terminated unexpectedly");
+}
+finally
+{
+	Log.CloseAndFlush();
 }

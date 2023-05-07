@@ -1,18 +1,19 @@
 ﻿using Application;
 using Domain;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging;
+using Serilog;
+using ILogger = Serilog.ILogger;
 
 namespace Infrastructure;
 
 internal class Repository : IRepository
 {
     private readonly IDbContextFactory<GeoNamesDbContext> _factory;
-    private readonly ILogger<Repository> _logger;
+    private readonly ILogger _log;
 
-    public Repository(ILogger<Repository> logger, IDbContextFactory<GeoNamesDbContext> factory)
+    public Repository(IDbContextFactory<GeoNamesDbContext> factory)
     {
-        _logger = logger;
+        _log = Log.ForContext<Repository>();
         _factory = factory;
     }
 
@@ -21,11 +22,12 @@ internal class Repository : IRepository
         try
         {
             await using var context = await _factory.CreateDbContextAsync(token);
-            _logger.LogInformation("GetRangeAsync(...) was called.");
+            _log.Information("Getting range of geo names from db.");
 
             var border = double.Round(options.Radius / 111.3d, 5);
             var items = await context.Items
-                .Where(i => Math.Abs(options.Latitude - i.Latitude) <= border)
+	            .Where(i => i.Name.Contains(options.Name))
+	            .Where(i => Math.Abs(options.Latitude - i.Latitude) <= border)
                 .Where(i => Math.Abs(options.Longitude - i.Longitude) <= border)
                 .Where(i => i.Population >= options.MinimumPopulation)
                 .Where(i => i.Population <= options.MaximumPopulation)
@@ -57,7 +59,7 @@ internal class Repository : IRepository
         try
         {
             await using var context = await _factory.CreateDbContextAsync(token);
-            _logger.LogInformation("AddRangeAsync(...) was called.");
+            _log.Information("Adding range of geonames to db.");
 
             var entities = items as GeoName[] ?? items.ToArray();
             if (entities.Any())
@@ -81,7 +83,7 @@ internal class Repository : IRepository
     {
         try
         {
-            _logger.LogInformation("UpdateRangeAsync(...) was called.");
+            _log.Information("Updating range of geo names in db.");
             var deletes = new List<GeoName>();
             var entities = items.ToArray();
 
@@ -125,7 +127,7 @@ internal class Repository : IRepository
         try
         {
             await using var context = await _factory.CreateDbContextAsync(token);
-            _logger.LogInformation("DeleteRangeAsync(...) was called.");
+            _log.Information("Deleting range of geo names from db.");
             var items = new List<GeoName>();
 
             foreach (var delete in deletes)

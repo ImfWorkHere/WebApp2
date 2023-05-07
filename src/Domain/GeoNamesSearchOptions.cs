@@ -2,6 +2,7 @@
 
 public class GeoNamesSearchOptions
 {
+    public string Name { get; set; } = string.Empty;
     public double Latitude { get; set; } = 0;
     public double Longitude { get; set; } = 0;
     public double Radius { get; set; } = 20;

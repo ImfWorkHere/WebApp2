@@ -16,31 +16,33 @@ internal class Planner : IHostedService
     private readonly IRepository _repository;
     private readonly CancellationTokenSource _tokenSource;
 
-    private RepositoryStatus _status;
-
     public Planner(ILogger<Planner> logger, DataSource dataSource, IRepository repository)
     {
         _logger = logger;
         _dataSource = dataSource;
         _repository = repository;
 
-        _status = new RepositoryStatus();
         _tokenSource = new CancellationTokenSource();
-        CheckStatus().Wait();
     }
 
     public async Task StartAsync(CancellationToken token = default)
     {
         try
         {
-            if (_status.IsInitialized == false)
+	        var anyCitySearchOptions = new GeoNamesSearchOptions()
+	        {
+		        Radius = 10000,
+                MinimumPopulation = 1000000
+	        };
+	        var isInitialized = (await _repository.GetRangeAsync(anyCitySearchOptions, token)).Any();
+
+			if (!isInitialized)
             {
                 var items = await _dataSource.GetFullDbAsync(token);
                 await _repository.AddRangeAsync(items, token);
-                _status.UpdateDate = DateTime.UtcNow;;
             }
 
-            CatchTime(token).RunSynchronously();
+            CatchTime(token).Start();
         }
         catch (Exception ex)
         {
@@ -60,20 +62,6 @@ internal class Planner : IHostedService
         }
     }
 
-
-    private async Task CheckStatus()
-    {
-        var items = await _repository.GetRangeAsync(new GeoNamesSearchOptions()
-        {
-            Radius = 10000
-        });
-
-        if (items.Any())
-        {
-            _status.IsInitialized = true;
-        }
-    }
-
     private async Task CatchTime(CancellationToken token = default)
     {
         try
@@ -88,7 +76,7 @@ internal class Planner : IHostedService
                 await timer.WaitForNextTickAsync(token);
             }
 
-            UpdateDb(_tokenSource.Token).RunSynchronously();
+            UpdateDb(_tokenSource.Token).Start();
         }
         catch (Exception ex)
         {
@@ -110,7 +98,6 @@ internal class Planner : IHostedService
                 var items = await _dataSource.GetModificationsAsync(token);
                 await _repository.UpdateRangeAsync(items, token);
 
-                _status.UpdateDate = DateTime.UtcNow;
                 _logger.LogInformation($"Db was updated at {DateTime.Now}");
                 GC.Collect();
 
