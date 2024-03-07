@@ -1,6 +1,8 @@
 ## About 
 A RESTful API for searching geo names (cities, rivers and so on). Built using ASP.Net, Entity Framework, SQL Server, Seq, Docker, docker-compose. Taking data from [here](http://geonames.org).
 
+[!NOTE] Free data dump from geoname.org is no longer available.
+
 ## Documentation
 API supports following methods:
 
